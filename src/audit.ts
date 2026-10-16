@@ -58,7 +58,7 @@ async function acquireAuditLock(auditPath: string): Promise<AuditLock> {
 
   const info = await handle.stat();
   try {
-    await handle.writeFile(`${process.pid}\\n`, "utf8");
+    await handle.writeFile(`${process.pid}\n`, "utf8");
     return { path: lockPath, handle, dev: info.dev, ino: info.ino };
   } catch (error) {
     await handle.close().catch(() => undefined);
