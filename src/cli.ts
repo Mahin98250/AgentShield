@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { lstat, mkdir, open as openFile, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadPolicy } from "./policy.js";
@@ -40,14 +41,55 @@ async function main(): Promise<void> {
   const command = process.argv[2];
   if (!command || command === "--help" || command === "-h") { help(); return; }
   if (command === "init") {
+    const directory = resolve(".agentshield");
     const path = resolve(POLICY);
-    await mkdir(resolve(".agentshield"), { recursive: true, mode: 0o700 });
-    if (!process.argv.includes("--force")) {
-      try { await access(path); console.error(`${POLICY} already exists. Use --force to replace it.`); process.exitCode = 1; return; }
-      catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+    try {
+      const directoryInfo = await lstat(directory);
+      if (directoryInfo.isSymbolicLink() || !directoryInfo.isDirectory()) {
+        throw new Error(".agentshield must be a real directory, not a symlink or special file.");
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      await mkdir(directory, { mode: 0o700 });
     }
+    const checkedDirectory = await lstat(directory);
+    if (checkedDirectory.isSymbolicLink() || !checkedDirectory.isDirectory()) {
+      throw new Error(".agentshield must be a real directory, not a symlink or special file.");
+    }
+
     const template = fileURLToPath(new URL("../rules/default.yml", import.meta.url));
-    await writeFile(path, await readFile(template, "utf8"), { encoding: "utf8", mode: 0o600 });
+    const templateText = await readFile(template, "utf8");
+    const force = process.argv.includes("--force");
+    const noFollow = constants.O_NOFOLLOW ?? 0;
+    if (force) {
+      try {
+        const existing = await lstat(path);
+        if (existing.isSymbolicLink() || !existing.isFile()) {
+          throw new Error("Refusing to replace a symlink or non-regular policy file.");
+        }
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+    }
+    let handle;
+    try {
+      const flags = constants.O_WRONLY | constants.O_CREAT | noFollow |
+        (force ? constants.O_TRUNC : constants.O_EXCL);
+      handle = await openFile(path, flags, 0o600);
+    } catch (error) {
+      if (!force && (error as NodeJS.ErrnoException).code === "EEXIST") {
+        console.error(`${POLICY} already exists. Use --force to replace it.`);
+        process.exitCode = 1;
+        return;
+      }
+      throw error;
+    }
+    try {
+      await handle.chmod(0o600).catch(() => { /* POSIX permissions may be unavailable */ });
+      await handle.writeFile(templateText, "utf8");
+    } finally {
+      await handle.close();
+    }
     console.log(`Created ${POLICY}`);
     return;
   }
