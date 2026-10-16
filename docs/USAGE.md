@@ -36,7 +36,7 @@ The first command is on the low-risk allowlist; the second should be blocked by 
 4. From the target project folder, run the matching AgentShield CLI with init to create that project's local .agentshield/policy.yml. For an external checkout, use the same absolute path configured above.
 5. Start Claude Code in that project and test a safe command, a blocked command, and a read of a protected file.
 
-The hook checks Bash/PowerShell and Read/Write/Edit calls that Claude Code sends to its PreToolUse hook. The example uses onFailure: block, so hook failures should stop the associated tool call. See the official [Claude Code hooks guide](https://code.claude.com/docs/en/hooks) for the current format.
+The hook checks Bash/PowerShell and Read/Write/Edit calls that Claude Code sends to its PreToolUse hook. The example uses `onFailure: "block"`, which requires Claude Code v2.1.295 or newer. Without support for that setting, a hook timeout or crash may not block the tool call. Verify the installed Claude Code version and test the deny path before relying on enforcement. See the official [Claude Code hooks guide](https://code.claude.com/docs/en/hooks) for the current format.
 
 ## 4. Open the activity view
 
