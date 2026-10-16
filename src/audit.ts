@@ -56,16 +56,20 @@ async function acquireAuditLock(auditPath: string): Promise<AuditLock> {
   }
   if (!handle) throw new Error("Unable to acquire audit lock.");
 
-  const info = await handle.stat();
+  let info: { dev: number; ino: number } | undefined;
   try {
-    await handle.writeFile(`${process.pid}\n`, "utf8");
-    return { path: lockPath, handle, dev: info.dev, ino: info.ino };
+    const stats = await handle.stat();
+    info = { dev: stats.dev, ino: stats.ino };
+    await handle.writeFile(`${process.pid}\\n`, "utf8");
+    return { path: lockPath, handle, dev: stats.dev, ino: stats.ino };
   } catch (error) {
     await handle.close().catch(() => undefined);
-    try {
-      const pathInfo = await lstat(lockPath);
-      if (!pathInfo.isSymbolicLink() && pathInfo.dev === info.dev && pathInfo.ino === info.ino) await unlink(lockPath);
-    } catch { /* preserve the original lock-write failure */ }
+    if (info) {
+      try {
+        const pathInfo = await lstat(lockPath);
+        if (!pathInfo.isSymbolicLink() && pathInfo.dev === info.dev && pathInfo.ino === info.ino) await unlink(lockPath);
+      } catch { /* preserve the original lock-write failure */ }
+    }
     throw error;
   }
 }
@@ -76,6 +80,8 @@ async function releaseAuditLock(lock: AuditLock): Promise<void> {
     if (!pathInfo.isSymbolicLink() && pathInfo.isFile() && pathInfo.dev === lock.dev && pathInfo.ino === lock.ino) {
       await unlink(lock.path);
     }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   } finally {
     await lock.handle.close();
   }
