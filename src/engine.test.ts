@@ -9,6 +9,7 @@ import { DEFAULT_POLICY, parsePolicyText } from "./policy.js";
 import { evaluate, evaluateFilePath, protectedPathMatch, redact } from "./engine.js";
 import { evaluateClaudeInput, formatClaudeResponse } from "./claude-hook.js";
 import { writeAudit, readAudit } from "./audit.js";
+import { isTrustedViewerRequest } from "./viewer.js";
 
 test("allows a known low-risk test command without bypassing normal agent permissions", () => {
   assert.equal(evaluate("npm test", DEFAULT_POLICY).decision, "allow");
@@ -262,4 +263,14 @@ test("init refuses to overwrite a policy symlink", async () => {
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test("viewer accepts only loopback hosts and same-origin browser requests", () => {
+  assert.equal(isTrustedViewerRequest("127.0.0.1:4173", undefined, undefined), true);
+  assert.equal(isTrustedViewerRequest("localhost:4173", "http://localhost:4173", "same-origin"), true);
+  assert.equal(isTrustedViewerRequest("attacker.example", undefined, undefined), false);
+  assert.equal(isTrustedViewerRequest("127.0.0.1:4173", "http://attacker.example", "cross-site"), false);
+  assert.equal(isTrustedViewerRequest("127.0.0.1:4173", "http://127.0.0.1:4174", "same-site"), false);
+  assert.equal(isTrustedViewerRequest("127.0.0.1:65536", undefined, undefined), false);
+  assert.equal(isTrustedViewerRequest(undefined, undefined, undefined), false);
 });
