@@ -1,26 +1,52 @@
-import { appendFile, chmod, lstat, mkdir, readFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { chmod, lstat, mkdir, open as openFile } from "node:fs/promises";
+import type { FileHandle } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import type { AuditEvent, Evaluation } from "./types.js";
-import { redact } from "./engine.js";
 
 const MAX_AUDIT_BYTES = 10 * 1024 * 1024;
+const NOFOLLOW_FLAG = constants.O_NOFOLLOW ?? 0;
+
+function unsafeAuditPath(): Error {
+  return new Error("Audit log must be a regular file, not a symlink or special file.");
+}
+
+async function rejectUnsafeExistingPath(fullPath: string): Promise<void> {
+  try {
+    const existing = await lstat(fullPath);
+    if (existing.isSymbolicLink() || !existing.isFile()) throw unsafeAuditPath();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+}
+
+// Validate the opened handle against the directory entry as well as using O_NOFOLLOW
+// where the platform supports it. The handle stays bound to this file if the path is
+// replaced after opening; the lstat/fstat comparison catches common replacement races.
+async function verifyOpenedAuditFile(fullPath: string, handle: FileHandle): Promise<void> {
+  const [pathInfo, handleInfo] = await Promise.all([lstat(fullPath), handle.stat()]);
+  if (
+    pathInfo.isSymbolicLink() ||
+    !pathInfo.isFile() ||
+    !handleInfo.isFile() ||
+    pathInfo.dev !== handleInfo.dev ||
+    pathInfo.ino !== handleInfo.ino
+  ) {
+    throw unsafeAuditPath();
+  }
+}
 
 export async function writeAudit(evaluation: Evaluation, path = ".agentshield/audit.jsonl"): Promise<void> {
   const fullPath = resolve(path);
   await mkdir(dirname(fullPath), { recursive: true, mode: 0o700 });
-  try {
-    const existing = await lstat(fullPath);
-    if (existing.isSymbolicLink() || !existing.isFile()) throw new Error("Audit log must be a regular file, not a symlink or special file.");
-    if (existing.size > MAX_AUDIT_BYTES) throw new Error("Audit log reached the 10 MiB safety limit; archive it before continuing.");
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-  }
+  await rejectUnsafeExistingPath(fullPath);
+
   // Audit records intentionally omit command text, dynamic reasons, and rule IDs.
   // Sanitization cannot reliably discover arbitrary secrets in arbitrary text.
-  const decision = ["allow", "approve", "block", "error"].includes(evaluation.decision)
+  const decision = [ "allow", "approve", "block", "error" ].includes(evaluation.decision)
     ? evaluation.decision
     : "error";
-  const parsedTimestamp = Date.parse(evaluation.timestamp);
+  const parsedTimestamp = typeof evaluation.timestamp === "string" ? Date.parse(evaluation.timestamp) : NaN;
   const event: AuditEvent = {
     event: "decision",
     decision,
@@ -29,18 +55,45 @@ export async function writeAudit(evaluation: Evaluation, path = ".agentshield/au
     reason: "Policy decision recorded; sensitive details omitted."
   };
   const line = JSON.stringify(event) + "\n";
-  if (Buffer.byteLength(line, "utf8") > MAX_AUDIT_BYTES) throw new Error("Audit event exceeds the safety limit.");
-  await appendFile(fullPath, line, { encoding: "utf8", mode: 0o600, flag: "a" });
-  try { await chmod(fullPath, 0o600); } catch { /* platform may not support POSIX permissions */ }
+  const lineBytes = Buffer.byteLength(line, "utf8");
+  if (lineBytes > MAX_AUDIT_BYTES) throw new Error("Audit event exceeds the safety limit.");
+
+  // O_NOFOLLOW prevents following a final-component symlink on supporting platforms.
+  // The handle/path check below is retained as an additional defense and fallback.
+  const handle = await openFile(
+    fullPath,
+    constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT | NOFOLLOW_FLAG,
+    0o600
+  );
+  try {
+    await verifyOpenedAuditFile(fullPath, handle);
+    const info = await handle.stat();
+    if (info.size + lineBytes > MAX_AUDIT_BYTES) {
+      throw new Error("Audit log would exceed the 10 MiB safety limit; archive it before continuing.");
+    }
+    await handle.chmod(0o600).catch(() => { /* platform may not support POSIX permissions */ });
+    await handle.writeFile(line, { encoding: "utf8" });
+  } finally {
+    await handle.close();
+  }
 }
 
 export async function readAudit(path = ".agentshield/audit.jsonl", limit = 50): Promise<AuditEvent[]> {
+  const fullPath = resolve(path);
+  let handle: FileHandle;
   try {
-    const fullPath = resolve(path);
-    const info = await lstat(fullPath);
-    if (info.isSymbolicLink() || !info.isFile()) throw new Error("Audit log must be a regular file, not a symlink or special file.");
+    await rejectUnsafeExistingPath(fullPath);
+    handle = await openFile(fullPath, constants.O_RDONLY | NOFOLLOW_FLAG);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
+  }
+
+  try {
+    await verifyOpenedAuditFile(fullPath, handle);
+    const info = await handle.stat();
     if (info.size > MAX_AUDIT_BYTES) throw new Error("Audit log exceeds the 10 MiB safety limit.");
-    const text = await readFile(fullPath, "utf8");
+    const text = await handle.readFile("utf8");
     const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(Math.trunc(limit), 500)) : 50;
     return text.split(/\r?\n/).filter(Boolean).slice(-safeLimit).flatMap(line => {
       try {
@@ -50,17 +103,17 @@ export async function readAudit(path = ".agentshield/audit.jsonl", limit = 50): 
         if (v.event !== "decision" || !["allow", "approve", "block", "error"].includes(String(v.decision)) ||
             typeof v.timestamp !== "string" || typeof v.reason !== "string" ||
             typeof v.commandSummary !== "string" || v.commandSummary.length > 240) return [];
+        const parsedTimestamp = Date.parse(v.timestamp);
         return [{
           event: "decision",
           decision: v.decision,
-          timestamp: Number.isFinite(Date.parse(v.timestamp)) ? new Date(Date.parse(v.timestamp)).toISOString() : new Date(0).toISOString(),
+          timestamp: Number.isFinite(parsedTimestamp) ? new Date(parsedTimestamp).toISOString() : new Date(0).toISOString(),
           reason: "Policy decision recorded; sensitive details omitted.",
           commandSummary: "[omitted for privacy]"
         } as AuditEvent];
       } catch { return []; }
     });
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
-    throw error;
+  } finally {
+    await handle.close();
   }
 }
