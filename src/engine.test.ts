@@ -328,3 +328,18 @@ test("init refuses a symlinked .agentshield directory", async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("Claude Code example settings are valid and configured to block hook failures", async () => {
+  for (const path of ["../examples/claude-settings.json", "../examples/claude-settings.external.json"]) {
+    const settings: unknown = JSON.parse(await readFile(new URL(path, import.meta.url), "utf8"));
+    assert.equal(typeof settings, "object");
+    assert.notEqual(settings, null);
+    const hooks = (settings as { hooks?: { PreToolUse?: Array<{ matcher?: string; hooks?: Array<{ type?: string; timeout?: number; onFailure?: string; args?: string[] }> }> } }).hooks;
+    const handler = hooks?.PreToolUse?.[0]?.hooks?.[0];
+    assert.match(hooks?.PreToolUse?.[0]?.matcher ?? "", /Bash.*Write.*Edit.*Read/);
+    assert.equal(handler?.type, "command");
+    assert.equal(handler?.onFailure, "block");
+    assert.equal(handler?.timeout, 5);
+    assert.equal(handler?.args?.[1], "claude-hook");
+  }
+});
