@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+<title id="title">AgentShield shield mark</title>
+<defs><linearGradient id="shield" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#243654"/><stop offset="1" stop-color="#0c1527"/></linearGradient></defs>
+<path d="M64 7 111 25v32c0 29-18 49-47 64C35 106 17 86 17 57V25Z" fill="url(#shield)"/>
+<path d="M64 17 101 31v26c0 23-13 39-37 51C40 96 27 80 27 57V31Z" fill="none" stroke="#657a99" stroke-width="2"/>
+<path d="M44 63 57 76 85 47" fill="none" stroke="#e4a17f" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="64" cy="20" r="3" fill="#f3c4a6"/>
+</svg>

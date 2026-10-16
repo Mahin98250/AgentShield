@@ -5,9 +5,10 @@ import type { PatternRule, Policy } from "./types.js";
 export const DEFAULT_POLICY: Policy = {
   version: 1,
   defaults: { unknown_command: "approve", require_approval: ["git push", "npm publish"] },
-  protected_paths: [".env", ".env.*", "*.pem", "*.key", "id_rsa", ".ssh/**"],
+  protected_paths: [".env", ".env.*", "*.pem", "*.key", "id_rsa", ".ssh/**", ".agentshield/**", ".claude/settings.json", ".claude/settings.local.json"],
   dangerous_patterns: [
-    { id: "recursive-force-delete", pattern: "\\brm\\s+-(?:rf|fr)\\b", reason: "Recursive forced deletion is forbidden.", action: "block" },
+    { id: "recursive-force-delete", pattern: "\\brm\\b(?=[^\\n]*(?:\\s-[^\\s]*r|\\s--recursive\\b))(?=[^\\n]*(?:\\s-[^\\s]*f|\\s--force\\b))", reason: "Recursive forced deletion is forbidden.", action: "block" },
+    { id: "powershell-recursive-delete", pattern: "\\bRemove-Item\\b(?=[^\\n]*\\s-(?:Recurse|r)\\b)(?=[^\\n]*\\s-(?:Force|f)\\b)", reason: "Recursive forced deletion in PowerShell is blocked.", action: "block" },
     { id: "remote-script-pipe", pattern: "\\b(?:curl|wget)\\b[^\\n]*\\|\\s*(?:sh|bash|zsh)\\b", reason: "Remote script piped to a shell is blocked.", action: "block" }
   ],
   secret_patterns: [

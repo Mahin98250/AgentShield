@@ -21,7 +21,7 @@ export function evaluateClaudeInput(input: ClaudeHookInput, policy: Policy): Eva
     if (typeof toolInput.command !== "string") return { decision: "error", reason: "Shell tool input has no command string.", commandSummary: "[invalid shell input]", timestamp: new Date().toISOString() };
     return evaluate(toolInput.command, policy);
   }
-  if (input.tool_name === "Write" || input.tool_name === "Edit") {
+  if (input.tool_name === "Write" || input.tool_name === "Edit" || input.tool_name === "Read") {
     const filePath = toolInput.file_path ?? toolInput.path;
     if (typeof filePath !== "string") return { decision: "error", reason: "File tool input has no file path.", commandSummary: "[invalid file input]", timestamp: new Date().toISOString() };
     const result = evaluateFilePath(filePath, policy);

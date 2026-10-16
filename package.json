@@ -14,7 +14,8 @@
     "rules",
     "README.md",
     "LICENSE",
-    "SECURITY.md"
+    "SECURITY.md",
+    "docs/assets"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",

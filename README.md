@@ -1,6 +1,22 @@
-# AgentShield
+<p align="center">
+  <img src="docs/assets/agentshield-mark.svg" alt="AgentShield shield mark" width="82">
+</p>
 
-A local-first safety layer for AI coding agents. AgentShield checks commands and protected-file operations against explicit rules before a supported agent tool runs. Decisions are deterministic and local; no paid model API, hosted service, or telemetry is required.
+<h1 align="center">AgentShield</h1>
+
+<p align="center">A local-first safety layer for AI coding agents.</p>
+
+<p align="center">
+  <a href="https://github.com/Mahin98250/AgentShield/actions/workflows/ci.yml"><img src="https://github.com/Mahin98250/AgentShield/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <img src="https://img.shields.io/badge/Node.js-20%2B-417e38" alt="Node.js 20 or newer">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
+</p>
+
+<p align="center">
+  <a href="https://claude.com/product/claude-code"><img src="docs/assets/claude-code-mark.svg" alt="Claude Code integration" height="40"></a>
+</p>
+
+AgentShield checks commands and protected-file operations against explicit rules before a supported agent tool runs. Decisions are deterministic and local; no paid model API, hosted service, or telemetry is required.
 
 > Early development: AgentShield is not a sandbox. Text rules cannot fully parse every shell form, and a hook can only protect actions that pass through it. Use OS/container isolation appropriate to the risk.
 
@@ -8,8 +24,8 @@ A local-first safety layer for AI coding agents. AgentShield checks commands and
 
 - TypeScript CLI with a YAML policy format and strict validation.
 - Conservative command rules: destructive patterns block; unfamiliar commands ask for approval.
-- Claude Code PreToolUse adapter for Bash, PowerShell, Write, and Edit.
-- Protected-path checks for file writes/edits covered by the hook.
+- Claude Code PreToolUse adapter for Bash, PowerShell, Write, Edit, and Read.
+- Protected-path checks for secret files, policy files, and Claude Code settings covered by the hook.
 - Local JSONL activity log, basic secret redaction, and a loopback-only read-only viewer.
 - Regression tests, security notes, and GitHub Actions CI.
 
@@ -28,14 +44,17 @@ The init command creates .agentshield/policy.yml. The check command is advisory 
 
 ## Claude Code integration
 
-Build AgentShield, create a local policy, and copy examples/claude-settings.json into .claude/settings.json (or merge its hooks section into your existing settings). The example expects AgentShield to be checked out at the root of the protected project.
+<p align="left"><a href="https://claude.com/product/claude-code"><img src="docs/assets/claude-code-mark.svg" alt="Claude Code" height="38"></a></p>
 
-- A block or evaluation error returns an explicit Claude Code deny decision.
-- An approval-required decision returns ask, so Claude Code requests human confirmation.
-- An allow decision adds no hook decision; Claude Code's normal permission flow still applies.
-- Writes/edits to configured protected paths are denied. Other edits continue under Claude Code's own permission controls.
+Build AgentShield, run node dist/cli.js init, and merge the hook from examples/claude-settings.json into your existing .claude/settings.json. The example expects AgentShield to be checked out at the root of the project Claude Code will work in.
 
-Test with safe and deliberately blocked commands before relying on it. Claude Code hook schemas can change; see the [official Hooks reference](https://code.claude.com/docs/en/hooks).
+- A block decision returns deny and stops the tool call.
+- A command needing review returns ask, which brings back the normal confirmation prompt.
+- For an ordinary command, AgentShield stays quiet; Claude Code's usual permission checks still apply.
+- The hook checks Bash/PowerShell commands and Read/Write/Edit paths. Configured protected files, AgentShield policy files, and Claude Code settings are blocked.
+- onFailure: block tells Claude Code to stop the action if the hook fails or times out.
+
+See the [Claude Code hooks documentation](https://code.claude.com/docs/en/hooks) for current settings. Claude Code is a product of Anthropic; AgentShield is independent and is not affiliated with Anthropic.
 
 ## Policy
 
@@ -52,6 +71,10 @@ The policy parser intentionally supports a conservative YAML subset and rejects 
 - log [--limit 50] — show recent decisions.
 - viewer [--port 4173] — serve the activity viewer on 127.0.0.1 only.
 
+## Can I use it in a web browser?
+
+AgentShield is a local CLI, not a hosted web app or browser extension. Its activity viewer opens in your browser at http://127.0.0.1:4173 and reads the audit log stored on your own computer. It does not run inside GitHub.com and cannot protect commands from a remote coding agent unless those commands pass through the configured local hook.
+
 ## Privacy and limits
 
 The CLI makes no network requests and collects no analytics. Audit events contain a short redacted command summary, decision, reason, timestamp, and optional rule ID; raw command output is not captured. Redaction is best-effort and cannot guarantee all credentials are removed. The viewer is read-only, loopback-bound, escapes log text, and disables script execution with a Content Security Policy.
@@ -60,7 +83,7 @@ AgentShield does not provide sandboxing, network controls, OS-level filesystem a
 
 ## Development and security
 
-Run npm run check for the build and automated tests. See docs/THREAT_MODEL.md for the initial threat model, CONTRIBUTING.md for the contributor workflow, CHANGELOG.md for release notes, and SECURITY.md for vulnerability reporting. This is an engineering baseline, not a formal security audit or certification.
+Run npm run check for the build and automated tests. See docs/USAGE.md for a short walkthrough, docs/THREAT_MODEL.md for the initial threat model, CONTRIBUTING.md for the contributor workflow, CHANGELOG.md for release notes, and SECURITY.md for vulnerability reporting. This is an engineering baseline, not a formal security audit or certification.
 
 ## Roadmap
 

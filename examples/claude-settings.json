@@ -2,12 +2,17 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|PowerShell|Write|Edit",
+        "matcher": "Bash|PowerShell|Write|Edit|Read",
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PROJECT_DIR}/dist/cli.js\" claude-hook",
-            "timeout": 5
+            "command": "node",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/dist/cli.js",
+              "claude-hook"
+            ],
+            "timeout": 5,
+            "onFailure": "block"
           }
         ]
       }

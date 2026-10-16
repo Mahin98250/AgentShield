@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 56" role="img" aria-labelledby="title">
+<title id="title">Claude Code integration</title>
+<g fill="none" stroke="#D97757" stroke-width="3.1" stroke-linecap="round">
+<path d="M25 5v10M25 41v10M7 28h10M33 28h10M12.5 15.5l7 7M30.5 33.5l7 7M37.5 15.5l-7 7M19.5 33.5l-7 7"/>
+<path d="M25 19v18M16 28h18M18.5 21.5l13 13M31.5 21.5l-13 13" stroke-width="2.3"/>
+</g>
+<text x="54" y="36" font-family="Georgia, 'Times New Roman', serif" font-size="30" fill="#292725">Claude Code</text>
+</svg>

@@ -12,10 +12,17 @@ protected_paths:
   - "*.key"
   - "id_rsa"
   - ".ssh/**"
+  - ".agentshield/**"
+  - ".claude/settings.json"
+  - ".claude/settings.local.json"
 dangerous_patterns:
   - id: recursive-force-delete
-    pattern: "\\brm\\s+-(?:rf|fr)\\b"
+    pattern: "\\brm\\b(?=[^\\n]*(?:\\s-[^\\s]*r|\\s--recursive\\b))(?=[^\\n]*(?:\\s-[^\\s]*f|\\s--force\\b))"
     reason: Recursive forced deletion is blocked by the starter policy.
+    action: block
+  - id: powershell-recursive-delete
+    pattern: "\\bRemove-Item\\b(?=[^\\n]*\\s-(?:Recurse|r)\\b)(?=[^\\n]*\\s-(?:Force|f)\\b)"
+    reason: Recursive forced deletion in PowerShell is blocked.
     action: block
   - id: disk-format
     pattern: "\\b(?:mkfs(?:\\.[a-z0-9]+)?|diskpart)\\b"
