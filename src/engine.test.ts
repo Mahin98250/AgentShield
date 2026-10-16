@@ -159,6 +159,13 @@ test("audit log re-redacts summaries and can be read back", async () => {
     await symlink(path, link);
     await assert.rejects(writeAudit({ decision: "allow", reason: "test", commandSummary: "pwd", timestamp: new Date().toISOString() }, link), /symlink/);
     await assert.rejects(readAudit(link), /symlink/);
+    const parentLink = join(dir, "audit-directory-link");
+    await symlink(dir, parentLink);
+    await assert.rejects(
+      writeAudit({ decision: "allow", reason: "test", commandSummary: "pwd", timestamp: new Date().toISOString() }, join(parentLink, "other.jsonl")),
+      /Audit directory.*symlink/
+    );
+    await assert.rejects(readAudit(join(parentLink, "other.jsonl")), /Audit directory.*symlink/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
