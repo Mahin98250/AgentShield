@@ -76,7 +76,7 @@ test("Claude adapter denies protected file reads and writes while leaving ordina
   assert.equal(evaluateClaudeInput({ tool_name: "Edit", tool_input: { file_path: "/repo/src/app.ts" } }, DEFAULT_POLICY), null);
 });
 test("Claude adapter ignores unrelated tools", () => {
-  assert.equal(evaluateClaudeInput({ tool_name: "Read", tool_input: { file_path: ".env" } }, DEFAULT_POLICY), null);
+  assert.equal(evaluateClaudeInput({ tool_name: "Glob", tool_input: { pattern: ".env" } }, DEFAULT_POLICY), null);
 });
 test("audit log re-redacts summaries and can be read back", async () => {
   const dir = await mkdtemp(join(tmpdir(), "agentshield-test-"));
