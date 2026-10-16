@@ -2,6 +2,7 @@ import { constants } from "node:fs";
 import { lstat, mkdir, open as openFile } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import type { AuditEvent, Evaluation } from "./types.js";
 
 const MAX_AUDIT_BYTES = 10 * 1024 * 1024;
@@ -27,6 +28,48 @@ async function rejectUnsafeExistingPath(fullPath: string): Promise<void> {
   }
 }
 
+interface AuditLock {
+  path: string;
+  handle: FileHandle;
+  dev: number;
+  ino: number;
+}
+
+async function acquireAuditLock(auditPath: string): Promise<AuditLock> {
+  const lockPath = `${auditPath}.lock`;
+  for (let attempt = 0; attempt < 100; attempt++) {
+    try {
+      const handle = await openFile(
+        lockPath,
+        constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | NOFOLLOW_FLAG,
+        0o600
+      );
+      const info = await handle.stat();
+      await handle.writeFile(`${process.pid}\\n`, "utf8");
+      return { path: lockPath, handle, dev: info.dev, ino: info.ino };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      if (attempt === 99) {
+        throw new Error("Audit log is busy or has a stale lock; retry, and remove the .lock file only after confirming no AgentShield writer is active.");
+      }
+      await delay(10);
+    }
+  }
+  throw new Error("Unable to acquire audit lock.");
+}
+
+async function releaseAuditLock(lock: AuditLock): Promise<void> {
+  try {
+    const pathInfo = await lstat(lock.path);
+    if (!pathInfo.isSymbolicLink() && pathInfo.isFile() && pathInfo.dev === lock.dev && pathInfo.ino === lock.ino) {
+      const { unlink } = await import("node:fs/promises");
+      await unlink(lock.path);
+    }
+  } finally {
+    await lock.handle.close();
+  }
+}
+
 // Validate the opened handle against the directory entry as well as using O_NOFOLLOW
 // where the platform supports it. The handle stays bound to this file if the path is
 // replaced after opening; the lstat/fstat comparison catches common replacement races.
@@ -47,42 +90,46 @@ export async function writeAudit(evaluation: Evaluation, path = ".agentshield/au
   const fullPath = resolve(path);
   await mkdir(dirname(fullPath), { recursive: true, mode: 0o700 });
   await rejectUnsafeParentDirectory(fullPath);
-  await rejectUnsafeExistingPath(fullPath);
-
-  // Audit records intentionally omit command text, dynamic reasons, and rule IDs.
-  // Sanitization cannot reliably discover arbitrary secrets in arbitrary text.
-  const decision = [ "allow", "approve", "block", "error" ].includes(evaluation.decision)
-    ? evaluation.decision
-    : "error";
-  const parsedTimestamp = typeof evaluation.timestamp === "string" ? Date.parse(evaluation.timestamp) : NaN;
-  const event: AuditEvent = {
-    event: "decision",
-    decision,
-    timestamp: Number.isFinite(parsedTimestamp) ? new Date(parsedTimestamp).toISOString() : new Date().toISOString(),
-    commandSummary: "[omitted for privacy]",
-    reason: "Policy decision recorded; sensitive details omitted."
-  };
-  const line = JSON.stringify(event) + "\n";
-  const lineBytes = Buffer.byteLength(line, "utf8");
-  if (lineBytes > MAX_AUDIT_BYTES) throw new Error("Audit event exceeds the safety limit.");
-
-  // O_NOFOLLOW prevents following a final-component symlink on supporting platforms.
-  // The handle/path check below is retained as an additional defense and fallback.
-  const handle = await openFile(
-    fullPath,
-    constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT | NOFOLLOW_FLAG,
-    0o600
-  );
+  const lock = await acquireAuditLock(fullPath);
   try {
-    await verifyOpenedAuditFile(fullPath, handle);
-    const info = await handle.stat();
-    if (info.size + lineBytes > MAX_AUDIT_BYTES) {
-      throw new Error("Audit log would exceed the 10 MiB safety limit; archive it before continuing.");
+    await rejectUnsafeExistingPath(fullPath);
+
+    // Audit records intentionally omit command text, dynamic reasons, and rule IDs.
+    // Sanitization cannot reliably discover arbitrary secrets in arbitrary text.
+    const decision = ["allow", "approve", "block", "error"].includes(evaluation.decision)
+      ? evaluation.decision
+      : "error";
+    const parsedTimestamp = typeof evaluation.timestamp === "string" ? Date.parse(evaluation.timestamp) : NaN;
+    const event: AuditEvent = {
+      event: "decision",
+      decision,
+      timestamp: Number.isFinite(parsedTimestamp) ? new Date(parsedTimestamp).toISOString() : new Date().toISOString(),
+      commandSummary: "[omitted for privacy]",
+      reason: "Policy decision recorded; sensitive details omitted."
+    };
+    const line = JSON.stringify(event) + "\\n";
+    const lineBytes = Buffer.byteLength(line, "utf8");
+    if (lineBytes > MAX_AUDIT_BYTES) throw new Error("Audit event exceeds the safety limit.");
+
+    // O_NOFOLLOW prevents following a final-component symlink on supporting platforms.
+    const handle = await openFile(
+      fullPath,
+      constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT | NOFOLLOW_FLAG,
+      0o600
+    );
+    try {
+      await verifyOpenedAuditFile(fullPath, handle);
+      const info = await handle.stat();
+      if (info.size + lineBytes > MAX_AUDIT_BYTES) {
+        throw new Error("Audit log would exceed the 10 MiB safety limit; archive it before continuing.");
+      }
+      await handle.chmod(0o600).catch(() => { /* platform may not support POSIX permissions */ });
+      await handle.writeFile(line, { encoding: "utf8" });
+    } finally {
+      await handle.close();
     }
-    await handle.chmod(0o600).catch(() => { /* platform may not support POSIX permissions */ });
-    await handle.writeFile(line, { encoding: "utf8" });
   } finally {
-    await handle.close();
+    await releaseAuditLock(lock);
   }
 }
 
