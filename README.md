@@ -26,7 +26,7 @@ AgentShield checks commands and protected-file operations against explicit rules
 - Conservative command rules: known destructive patterns block; compound shell operators, redirection, substitutions, and unfamiliar commands ask for approval.
 - Claude Code PreToolUse adapter for Bash, PowerShell, Write, Edit, and Read.
 - Protected-path checks for secret files, policy files, and Claude Code settings covered by the hook.
-- Local JSONL activity log with bounded reads, basic secret redaction, and a loopback-only read-only viewer.
+- Local JSONL decision log with bounded reads, minimal recorded data, and a loopback-only read-only viewer.
 - Regression tests, security notes, and GitHub Actions CI.
 
 ## Requirements and quick start
@@ -77,7 +77,7 @@ AgentShield is a local CLI, not a hosted web app or browser extension. Its activ
 
 ## Privacy and limits
 
-The CLI makes no network requests and collects no analytics. Audit events contain a short redacted command summary, decision, reason, timestamp, and optional rule ID; raw command output is not captured. Redaction is best-effort and cannot guarantee all credentials are removed. Audit logs are limited to 10 MiB; archive the file before continuing if the limit is reached. The viewer is read-only, loopback-bound, escapes log text, and disables script execution with a Content Security Policy.
+The CLI makes no network requests and collects no analytics. Audit events deliberately record only the decision, a normalized timestamp, and fixed generic text; raw commands, dynamic policy reasons, and rule IDs are omitted to reduce accidental disclosure. Redaction elsewhere is best-effort only: it cannot guarantee detection of every unusual, encoded, multiline, or embedded credential. Do not put secrets in command arguments or policy messages, and do not treat sanitized summaries as a secrecy boundary. Audit logs are limited to 10 MiB; archive the file before continuing if the limit is reached. The viewer is read-only, loopback-bound, escapes log text, and disables script execution with a Content Security Policy.
 
 AgentShield does not provide sandboxing, network controls, OS-level filesystem authorization, full shell parsing, process-tree mediation, or protection from someone intentionally bypassing the hook. Protected-file checks apply only to supported tools/events the hook receives. Do not use this as the only protection for production credentials or untrusted code.
 
