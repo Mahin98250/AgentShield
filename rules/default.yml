@@ -1,0 +1,32 @@
+version: 1
+defaults:
+  # Unknown commands are escalated, never silently trusted.
+  unknown_command: approve
+  require_approval:
+    - "git push"
+    - "npm publish"
+protected_paths:
+  - ".env"
+  - ".env.*"
+  - "*.pem"
+  - "*.key"
+  - "id_rsa"
+  - ".ssh/**"
+dangerous_patterns:
+  - id: recursive-force-delete
+    pattern: "\\brm\\s+-(?:rf|fr)\\b"
+    reason: Recursive forced deletion is blocked by the starter policy.
+    action: block
+  - id: disk-format
+    pattern: "\\b(?:mkfs(?:\\.[a-z0-9]+)?|diskpart)\\b"
+    reason: Disk formatting needs human review.
+    action: approve
+  - id: remote-script-pipe
+    pattern: "\\b(?:curl|wget)\\b[^\\n]*\\|\\s*(?:sh|bash|zsh)\\b"
+    reason: Downloading and immediately executing a remote script is blocked.
+    action: block
+secret_patterns:
+  - id: credential-assignment
+    pattern: "(?:api[_-]?key|access[_-]?token|secret|password)\\s*[=:]\\s*[^\\s]+"
+    reason: Command may expose a credential in its arguments.
+    action: approve
