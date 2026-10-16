@@ -83,7 +83,7 @@ AgentShield does not provide sandboxing, network controls, OS-level filesystem a
 
 ## Development and security
 
-Run npm run check for the build and automated tests; CI checks Node.js 20, 22, and 24 and runs npm pack --dry-run to inspect the package contents. See docs/USAGE.md for a short walkthrough, docs/THREAT_MODEL.md for the initial threat model, CONTRIBUTING.md for the contributor workflow, CHANGELOG.md for release notes, and SECURITY.md for vulnerability reporting. This is an engineering baseline, not a formal security audit or certification.
+Run npm run check for the build and automated tests; CI checks Node.js 20, 22, and 24 and runs npm pack --dry-run to inspect the package contents. See docs/USAGE.md for a short walkthrough, docs/THREAT_MODEL.md for the threat model, docs/SECURITY_OPERATIONS.md for hook validation and audit-lock recovery, CONTRIBUTING.md for the contributor workflow, CHANGELOG.md for release notes, and SECURITY.md for vulnerability reporting. This is an engineering baseline, not a formal security audit or certification.
 
 ## Roadmap
 
