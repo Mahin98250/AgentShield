@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile, mkdtemp, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 import { DEFAULT_POLICY, parsePolicyText } from "./policy.js";
 import { evaluate, evaluateFilePath, protectedPathMatch, redact } from "./engine.js";
 import { evaluateClaudeInput, formatClaudeResponse } from "./claude-hook.js";
@@ -49,6 +50,43 @@ test("redacts bearer tokens and recognizable provider token prefixes", () => {
   assert.equal(redact("ghp_12345678901234567890").includes("ghp_12345678901234567890"), false);
   assert.equal(redact("deploy --token supersecret").includes("supersecret"), false);
   assert.equal(redact("tool --password=hunter2").includes("hunter2"), false);
+});
+test("redacts URL credentials, multiline authorization headers, and unusual authorization schemes", () => {
+  for (const input of [
+    "curl https://alice:topsecret@example.invalid/path",
+    "Authorization:\n  Bearer multiline-secret-value",
+    "Authorization: Basic dXNlcjpwYXNzd29yZA==",
+    "Authorization: MAC signed-secret-value",
+    "X-Api-Key: header-secret-value",
+    "curl https://example.invalid/?access_token=url-query-secret"
+  ]) {
+    const output = redact(input);
+    for (const secret of ["topsecret", "multiline-secret-value", "dXNlcjpwYXNzd29yZA==", "signed-secret-value", "header-secret-value", "url-query-secret"]) {
+      if (input.includes(secret)) assert.equal(output.includes(secret), false, `secret leaked for input: ${input}`);
+    }
+  }
+});
+test("evaluate rejects malformed runtime values before attempting redaction", () => {
+  for (const command of [null, undefined, 42, {}, ["npm", "test"]]) {
+    const result = evaluate(command, DEFAULT_POLICY);
+    assert.equal(result.decision, "error");
+    assert.equal(result.commandSummary, "[invalid command input]");
+  }
+  const tooLong = evaluate("x".repeat(8_001), DEFAULT_POLICY);
+  assert.equal(tooLong.decision, "approve");
+  assert.equal(tooLong.commandSummary, "[command omitted: exceeds inspection limit]");
+});
+test("Claude hook fails closed for malformed JSON and missing shell fields", () => {
+  const cli = new URL("./cli.js", import.meta.url);
+  const malformed = spawnSync(process.execPath, [cli.pathname, "claude-hook"], { input: "{not-json", encoding: "utf8" });
+  assert.equal(malformed.status, 0);
+  assert.match(malformed.stdout, /"permissionDecision":"deny"/);
+  const missing = spawnSync(process.execPath, [cli.pathname, "claude-hook"], {
+    input: JSON.stringify({ tool_name: "Bash", tool_input: {} }),
+    encoding: "utf8"
+  });
+  assert.equal(missing.status, 0);
+  assert.match(missing.stdout, /"permissionDecision":"deny"/);
 });
 test("loads bundled YAML and validates policy schema", async () => {
   const text = await readFile(new URL("../rules/default.yml", import.meta.url), "utf8");
