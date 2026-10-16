@@ -46,7 +46,7 @@ The init command creates .agentshield/policy.yml. The check command is advisory 
 
 <p align="left"><a href="https://claude.com/product/claude-code"><img src="docs/assets/claude-code-mark.svg" alt="Claude Code" height="38"></a></p>
 
-Build AgentShield, run node dist/cli.js init, and merge the hook from examples/claude-settings.json into your existing .claude/settings.json. The example expects AgentShield to be checked out at the root of the project Claude Code will work in.
+Build AgentShield, then choose a configuration example. Use examples/claude-settings.json if AgentShield is in the same repository. If you keep it in a separate folder, use examples/claude-settings.external.json and replace its placeholder with the absolute path to AgentShield/dist/cli.js. Merge the hooks section into the target project's existing .claude/settings.json—do not replace the whole file. Run AgentShield init from the target project to create its local .agentshield/policy.yml.
 
 - A block decision returns deny and stops the tool call.
 - A command needing review returns ask, which brings back the normal confirmation prompt.

@@ -29,9 +29,12 @@ The first command is on the low-risk allowlist; the second should be blocked by 
 ## 3. Connect Claude Code
 
 1. Build AgentShield with npm run build.
-2. Open examples/claude-settings.json.
-3. Merge its hooks section into your project's .claude/settings.json. Do not overwrite your existing settings.
-4. Start Claude Code in that project and test a safe command, a blocked command, and a read of a protected file.
+2. Choose the configuration that matches your layout:
+   - Same repository: use examples/claude-settings.json.
+   - Separate AgentShield checkout: use examples/claude-settings.external.json and replace its placeholder with the absolute path to AgentShield/dist/cli.js.
+3. Merge the selected hooks section into the target project's .claude/settings.json. Do not overwrite existing settings.
+4. From the target project folder, run the matching AgentShield CLI with init to create that project's local .agentshield/policy.yml. For an external checkout, use the same absolute path configured above.
+5. Start Claude Code in that project and test a safe command, a blocked command, and a read of a protected file.
 
 The hook checks Bash/PowerShell and Read/Write/Edit calls that Claude Code sends to its PreToolUse hook. The example uses onFailure: block, so hook failures should stop the associated tool call. See the official [Claude Code hooks guide](https://code.claude.com/docs/en/hooks) for the current format.
 

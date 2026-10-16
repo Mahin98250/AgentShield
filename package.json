@@ -15,7 +15,8 @@
     "README.md",
     "LICENSE",
     "SECURITY.md",
-    "docs"
+    "docs",
+    "examples"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
