@@ -64,4 +64,6 @@ If the reviewer determines that reliable shell classification cannot be achieved
 - [ ] Hook configuration is validated against the currently installed Claude Code version.
 - [ ] Tests cover allow, ask, deny, malformed input, policy parse failure, and audit write failure.
 - [ ] README, changelog, usage guide, and threat model describe the same behavior.
-- [ ] Independent security review is complete and its written disposition is recorded; shell parsing is explicitly in scope.\n- [ ] No unresolved release-blocking security findings remain.\n- [ ] No claim implies full secret detection, complete shell parsing, sandboxing, or formal security certification.
+- [ ] Independent security review is complete and its written disposition is recorded; shell parsing is explicitly in scope.
+- [ ] No unresolved release-blocking security findings remain.
+- [ ] No claim implies full secret detection, complete shell parsing, sandboxing, or formal security certification.
