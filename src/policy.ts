@@ -128,7 +128,7 @@ function validateStringList(value: unknown, where: string): string[] {
  * This is intentionally conservative and not a proof that a pattern has bounded runtime.
  */
 function assertRegexComplexity(pattern: string, where: string): void {
-  if (/\\\\[1-9]/.test(pattern) || /\\\\k</.test(pattern)) {
+  if (/\\[1-9]/.test(pattern) || /\\k</.test(pattern)) {
     throw new Error(`${where} uses regex backreferences, which are not supported in policy rules`);
   }
   // Nested repetition such as (a+)+ or (.*){2,} can cause exponential backtracking.
