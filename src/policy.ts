@@ -123,6 +123,25 @@ function validateStringList(value: unknown, where: string): string[] {
   }
   return value as string[];
 }
+/**
+ * Reject common catastrophic-backtracking shapes in user-supplied JavaScript regexes.
+ * This is intentionally conservative and not a proof that a pattern has bounded runtime.
+ */
+function assertRegexComplexity(pattern: string, where: string): void {
+  if (/\\\\[1-9]/.test(pattern) || /\\\\k</.test(pattern)) {
+    throw new Error(`${where} uses regex backreferences, which are not supported in policy rules`);
+  }
+  // Nested repetition such as (a+)+ or (.*){2,} can cause exponential backtracking.
+  if (/\((?:\?:)?[^()]*[*+{][^()]*\)\s*(?:[*+]|\{\d)/.test(pattern)) {
+    throw new Error(`${where} has nested repetition and may cause excessive regex backtracking`);
+  }
+  // Repeating an alternation with overlapping branches (for example (a|aa)+) is
+  // another common ReDoS shape. Keep policy patterns simple and explicit.
+  if (/\((?:\?:)?[^()]*\|[^()]*\)\s*(?:[*+]|\{\d)/.test(pattern)) {
+    throw new Error(`${where} repeats an alternation and may cause excessive regex backtracking`);
+  }
+}
+
 function parseRules(value: unknown, where: string): PatternRule[] {
   if (!Array.isArray(value)) throw new Error(`${where} must be a list`);
   if (value.length > 200) throw new Error(`${where} may contain at most 200 rules`);
@@ -138,6 +157,7 @@ function parseRules(value: unknown, where: string): PatternRule[] {
     if (typeof pattern !== "string" || pattern.length === 0 || pattern.length > 500) throw new Error(`${at}.pattern must contain 1–500 characters`);
     if (typeof reason !== "string" || reason.length === 0 || reason.length > 500) throw new Error(`${at}.reason must contain 1–500 characters`);
     if (action !== "approve" && action !== "block") throw new Error(`${at}.action must be "approve" or "block"`);
+    assertRegexComplexity(pattern, `${at}.pattern`);
     try { new RegExp(pattern, "i"); } catch { throw new Error(`${at}.pattern is not a valid JavaScript regular expression`); }
     return { id, pattern, reason, action };
   });
