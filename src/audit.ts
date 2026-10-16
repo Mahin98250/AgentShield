@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { chmod, lstat, mkdir, open as openFile } from "node:fs/promises";
+import { lstat, mkdir, open as openFile } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import type { AuditEvent, Evaluation } from "./types.js";
