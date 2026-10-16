@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Add a branded local activity dashboard with decision counts.
+- Check protected file reads and protect AgentShield/Claude Code settings from hook-mediated edits.
+- Expand destructive command matching and fail-closed Claude Code hook configuration.
+- Add a short usage guide and integration branding.
+
+
 User-visible changes are recorded here. This project is early-stage; version 0.x is not a production security certification.
 
 ## 0.1.0 — Initial engineering milestone
