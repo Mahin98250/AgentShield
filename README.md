@@ -23,10 +23,10 @@ AgentShield checks commands and protected-file operations against explicit rules
 ## Included in this first milestone
 
 - TypeScript CLI with a YAML policy format and strict validation.
-- Conservative command rules: destructive patterns block; unfamiliar commands ask for approval.
+- Conservative command rules: known destructive patterns block; compound shell operators, redirection, substitutions, and unfamiliar commands ask for approval.
 - Claude Code PreToolUse adapter for Bash, PowerShell, Write, Edit, and Read.
 - Protected-path checks for secret files, policy files, and Claude Code settings covered by the hook.
-- Local JSONL activity log, basic secret redaction, and a loopback-only read-only viewer.
+- Local JSONL activity log with bounded reads, basic secret redaction, and a loopback-only read-only viewer.
 - Regression tests, security notes, and GitHub Actions CI.
 
 ## Requirements and quick start
@@ -77,13 +77,13 @@ AgentShield is a local CLI, not a hosted web app or browser extension. Its activ
 
 ## Privacy and limits
 
-The CLI makes no network requests and collects no analytics. Audit events contain a short redacted command summary, decision, reason, timestamp, and optional rule ID; raw command output is not captured. Redaction is best-effort and cannot guarantee all credentials are removed. The viewer is read-only, loopback-bound, escapes log text, and disables script execution with a Content Security Policy.
+The CLI makes no network requests and collects no analytics. Audit events contain a short redacted command summary, decision, reason, timestamp, and optional rule ID; raw command output is not captured. Redaction is best-effort and cannot guarantee all credentials are removed. Audit logs are limited to 10 MiB; archive the file before continuing if the limit is reached. The viewer is read-only, loopback-bound, escapes log text, and disables script execution with a Content Security Policy.
 
 AgentShield does not provide sandboxing, network controls, OS-level filesystem authorization, full shell parsing, process-tree mediation, or protection from someone intentionally bypassing the hook. Protected-file checks apply only to supported tools/events the hook receives. Do not use this as the only protection for production credentials or untrusted code.
 
 ## Development and security
 
-Run npm run check for the build and automated tests. See docs/USAGE.md for a short walkthrough, docs/THREAT_MODEL.md for the initial threat model, CONTRIBUTING.md for the contributor workflow, CHANGELOG.md for release notes, and SECURITY.md for vulnerability reporting. This is an engineering baseline, not a formal security audit or certification.
+Run npm run check for the build and automated tests; CI also runs npm pack --dry-run to inspect the package contents. See docs/USAGE.md for a short walkthrough, docs/THREAT_MODEL.md for the initial threat model, CONTRIBUTING.md for the contributor workflow, CHANGELOG.md for release notes, and SECURITY.md for vulnerability reporting. This is an engineering baseline, not a formal security audit or certification.
 
 ## Roadmap
 
