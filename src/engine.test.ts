@@ -260,7 +260,7 @@ defaults:
   unknown_command: approve
   require_approval: []
 protected_paths:
-${Array.from({ length: 501 }, (_, index) => `  - path-${index}`).join("\\n")}
+${Array.from({ length: 501 }, (_, index) => `  - path-${index}`).join("\n")}
 dangerous_patterns: []
 secret_patterns: []
 `;
