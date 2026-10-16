@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile, mkdtemp, rm } from "node:fs/promises";
+import { readFile, mkdtemp, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULT_POLICY, parsePolicyText } from "./policy.js";
@@ -33,6 +33,16 @@ test("redacts common credential assignments", () => {
   const value = redact("tool --api-key=supersecret");
   assert.equal(value.includes("supersecret"), false);
   assert.match(value, /REDACTED/);
+});
+test("redacts quoted credentials, JWT-like tokens, and cloud access key identifiers", () => {
+  assert.equal(redact('tool --password="two words secret"').includes("two words secret"), false);
+  assert.equal(redact("eyJabcdefgh.abcdefgh.abcdefgh").includes("eyJabcdefgh"), false);
+  assert.equal(redact("AKIA1234567890ABCDEF").includes("AKIA1234567890ABCDEF"), false);
+});
+test("compound shell syntax escalates for review while known dangerous rules still block", () => {
+  assert.equal(evaluate("echo safe; rm -rf /tmp/example", DEFAULT_POLICY).decision, "block");
+  assert.equal(evaluate("echo safe; echo another", DEFAULT_POLICY).decision, "approve");
+  assert.equal(evaluate("printf x | cat", DEFAULT_POLICY).decision, "approve");
 });
 test("redacts bearer tokens and recognizable provider token prefixes", () => {
   assert.equal(redact("Authorization: Bearer abc.def-123").includes("abc.def-123"), false);
@@ -85,6 +95,6 @@ test("audit log re-redacts summaries and can be read back", async () => {
     await writeAudit({ decision: "approve", reason: "review", commandSummary: "tool --api-key=supersecret", timestamp: new Date(0).toISOString() }, path);
     const raw = await readFile(path, "utf8");
     assert.equal(raw.includes("supersecret"), false);
-    assert.equal((await readAudit(path))[0]?.decision, "approve");
+    assert.equal((await readAudit(path))[0]?.decision, "approve");\n    const link = join(dir, "audit-link.jsonl");\n    await symlink(path, link);\n    await assert.rejects(writeAudit({ decision: "allow", reason: "test", commandSummary: "pwd", timestamp: new Date().toISOString() }, link), /symlink/);\n    await assert.rejects(readAudit(link), /symlink/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
