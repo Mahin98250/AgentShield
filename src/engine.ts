@@ -64,7 +64,7 @@ export function evaluateFilePath(filePath: string, policy: Policy, now = new Dat
   const base = { commandSummary: "[file operation]", timestamp: now.toISOString() };
   if (!filePath || filePath.length > 4_096) return { ...base, decision: "error", reason: "File path is missing or too long." };
   const pattern = protectedPathMatch(filePath, policy.protected_paths);
-  if (pattern) return { ...base, decision: "block", reason: "File operation targets protected path pattern " + pattern + ".", ruleId: "protected-path" };
+  if (pattern) return { ...base, decision: "block", reason: safeReason("File operation targets protected path pattern " + pattern + "."), ruleId: "protected-path" };
   return { ...base, decision: "allow", reason: "Path is not covered by a protected-path rule.", ruleId: "protected-path-check" };
 }
 
@@ -93,11 +93,11 @@ export function evaluate(command: unknown, policy: Policy, now = new Date()): Ev
   }
   for (const rule of policy.dangerous_patterns) {
     if (rule.action !== "block" && matchesRule(rule, command)) {
-      return { ...base, decision: rule.action, reason: rule.reason, ruleId: rule.id };
+      return { ...base, decision: rule.action, reason: safeReason(rule.reason), ruleId: rule.id };
     }
   }
   for (const rule of policy.secret_patterns) {
-    if (matchesRule(rule, command)) return { ...base, decision: rule.action, reason: rule.reason, ruleId: rule.id };
+    if (matchesRule(rule, command)) return { ...base, decision: rule.action, reason: safeReason(rule.reason), ruleId: rule.id };
   }
   const pathInCommand = command.match(/(?:^|\s)(?:['"]([^'"]+)['"]|([^\s;&|<>]+))/g) ?? [];
   const normalizedTokens = pathInCommand.map(token => token.trim().replace(/^['"]|['"]$/g, ""));
