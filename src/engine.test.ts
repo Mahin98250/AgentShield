@@ -130,15 +130,30 @@ test("audit log re-redacts summaries and can be read back", async () => {
   const dir = await mkdtemp(join(tmpdir(), "agentshield-test-"));
   const path = join(dir, "audit.jsonl");
   try {
-    await writeAudit({ decision: "approve", reason: "review https://user:reason-url-secret@example.invalid Authorization: Basic reason-auth-secret", commandSummary: "tool --api-key=supersecret", timestamp: new Date(0).toISOString() }, path);
+    const injectedSecrets = [
+      "command-url-secret", "reason-auth-secret", "rule-id-secret",
+      "timestamp-secret", "encoded-c2VjcmV0LXZhbHVl", "multiline-secret-value"
+    ];
+    await writeAudit({
+      decision: "approve",
+      reason: "Authorization: Basic reason-auth-secret\ncustom multiline-secret-value",
+      commandSummary: "https://user:command-url-secret@example.invalid/?token=encoded-c2VjcmV0LXZhbHVl",
+      ruleId: "rule-id-secret",
+      timestamp: "timestamp-secret"
+    }, path);
     const raw = await readFile(path, "utf8");
-    assert.equal(raw.includes("supersecret"), false);
-    assert.equal(raw.includes("reason-url-secret"), false);
-    assert.equal(raw.includes("reason-auth-secret"), false);
+    for (const secret of injectedSecrets) assert.equal(raw.includes(secret), false, `audit JSON leaked ${secret}`);
+    const parsed = JSON.parse(raw.trim()) as Record<string, unknown>;
+    for (const field of ["event", "decision", "timestamp", "reason", "commandSummary"]) {
+      assert.equal(typeof parsed[field], "string");
+      for (const secret of injectedSecrets) assert.equal(String(parsed[field]).includes(secret), false, `field ${field} leaked ${secret}`);
+    }
+    assert.equal("ruleId" in parsed, false);
     const events = await readAudit(path);
     assert.equal(events[0]?.decision, "approve");
-    assert.equal(events[0]?.reason.includes("reason-url-secret"), false);
-    assert.equal(events[0]?.reason.includes("reason-auth-secret"), false);
+    assert.equal(events[0]?.commandSummary, "[omitted for privacy]");
+    assert.equal(events[0]?.reason, "Policy decision recorded; sensitive details omitted.");
+    assert.equal(events[0]?.ruleId, undefined);
     const link = join(dir, "audit-link.jsonl");
     await symlink(path, link);
     await assert.rejects(writeAudit({ decision: "allow", reason: "test", commandSummary: "pwd", timestamp: new Date().toISOString() }, link), /symlink/);
