@@ -47,7 +47,7 @@ test("compound shell syntax escalates for review while known dangerous rules sti
   assert.equal(evaluate("echo safe; echo another", DEFAULT_POLICY).decision, "approve");
   assert.equal(evaluate("printf x | cat", DEFAULT_POLICY).decision, "approve");
   assert.equal(evaluate("sleep 10 &", DEFAULT_POLICY).decision, "approve");
-  assert.equal(evaluate("echo safe\\nprintf another", DEFAULT_POLICY).decision, "approve");
+  assert.equal(evaluate("echo safe\nprintf another", DEFAULT_POLICY).decision, "approve");
 });
 test("redacts bearer tokens and recognizable provider token prefixes", () => {
   assert.equal(redact("Authorization: Bearer abc.def-123").includes("abc.def-123"), false);
