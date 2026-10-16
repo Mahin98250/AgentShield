@@ -103,7 +103,7 @@ export function evaluate(command: unknown, policy: Policy, now = new Date()): Ev
   const normalizedTokens = pathInCommand.map(token => token.trim().replace(/^['"]|['"]$/g, ""));
   for (const token of normalizedTokens) {
     const match = protectedPathMatch(token, policy.protected_paths);
-    if (match) return { ...base, decision: "approve", reason: "Command references protected path pattern " + match + ".", ruleId: "protected-path" };
+    if (match) return { ...base, decision: "approve", reason: safeReason("Command references protected path pattern " + match + "."), ruleId: "protected-path" };
   }
   const approval = policy.defaults.require_approval.find(item => command.toLowerCase().includes(item.toLowerCase()));
   if (approval) return { ...base, decision: "approve", reason: safeReason("Command matches approval requirement: " + approval + "."), ruleId: "required-approval" };
