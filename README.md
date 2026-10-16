@@ -51,7 +51,7 @@ Build AgentShield, then choose a configuration example. Use examples/claude-sett
 - A block decision returns deny and stops the tool call.
 - A command needing review returns ask, which brings back the normal confirmation prompt.
 - For an ordinary command, AgentShield stays quiet; Claude Code's usual permission checks still apply.
-- The hook checks Bash/PowerShell commands and Read/Write/Edit paths. Configured protected files, AgentShield policy files, and Claude Code settings are blocked.
+- The hook checks Bash/PowerShell commands and Read/Write/Edit paths. Configured protected files, AgentShield policy files, and Claude Code settings are blocked. The sample uses `onFailure: "block"`; Claude Code requires v2.1.295 or newer for that setting. On older versions, hook timeout/failure behavior may be fail-open, so upgrade before relying on it as a blocking guard.
 - onFailure: block tells Claude Code to stop the action if the hook fails or times out.
 
 See the [Claude Code hooks documentation](https://code.claude.com/docs/en/hooks) for current settings. Claude Code is a product of Anthropic; AgentShield is independent and is not affiliated with Anthropic.
@@ -83,7 +83,7 @@ AgentShield does not provide sandboxing, network controls, OS-level filesystem a
 
 ## Development and security
 
-Run npm run check for the build and automated tests; CI also runs npm pack --dry-run to inspect the package contents. See docs/USAGE.md for a short walkthrough, docs/THREAT_MODEL.md for the initial threat model, CONTRIBUTING.md for the contributor workflow, CHANGELOG.md for release notes, and SECURITY.md for vulnerability reporting. This is an engineering baseline, not a formal security audit or certification.
+Run npm run check for the build and automated tests; CI checks Node.js 20, 22, and 24 and runs npm pack --dry-run to inspect the package contents. See docs/USAGE.md for a short walkthrough, docs/THREAT_MODEL.md for the initial threat model, CONTRIBUTING.md for the contributor workflow, CHANGELOG.md for release notes, and SECURITY.md for vulnerability reporting. This is an engineering baseline, not a formal security audit or certification.
 
 ## Roadmap
 
