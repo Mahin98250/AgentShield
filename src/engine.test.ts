@@ -274,3 +274,20 @@ test("viewer accepts only loopback hosts and same-origin browser requests", () =
   assert.equal(isTrustedViewerRequest("127.0.0.1:65536", undefined, undefined), false);
   assert.equal(isTrustedViewerRequest(undefined, undefined, undefined), false);
 });
+
+test("concurrent audit writers serialize and leave no lock behind", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "agentshield-audit-concurrent-"));
+  const path = join(dir, "audit.jsonl");
+  try {
+    await Promise.all(Array.from({ length: 20 }, (_, index) => writeAudit({
+      decision: index % 2 === 0 ? "allow" : "approve",
+      reason: "concurrency test",
+      commandSummary: "safe",
+      timestamp: new Date().toISOString()
+    }, path)));
+    assert.equal((await readAudit(path, 50)).length, 20);
+    await assert.rejects(readFile(path + ".lock"), { code: "ENOENT" });
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
