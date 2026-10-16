@@ -312,3 +312,19 @@ test("concurrent audit writers serialize and leave no lock behind", async () => 
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("init refuses a symlinked .agentshield directory", async () => {
+  if (process.platform === "win32") return;
+  const dir = await mkdtemp(join(tmpdir(), "agentshield-init-directory-link-"));
+  try {
+    const externalDir = join(dir, "external");
+    await mkdir(externalDir);
+    await symlink(externalDir, join(dir, ".agentshield"));
+    const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
+    const result = spawnSync(process.execPath, [cli, "init"], { cwd: dir, encoding: "utf8" });
+    assert.notEqual(result.status, 0);
+    await assert.rejects(readFile(join(externalDir, "policy.yml")), { code: "ENOENT" });
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
