@@ -255,6 +255,16 @@ secret_patterns: []
     assert.throws(() => parsePolicyText(policyWithPattern(pattern)), /backreferences|nested repetition|repeats an alternation/);
   }
   assert.equal(parsePolicyText(policyWithPattern("deploy\\s+staging")).dangerous_patterns.length, 1);
+  const oversizedPaths = `version: 1
+defaults:
+  unknown_command: approve
+  require_approval: []
+protected_paths:
+${Array.from({ length: 501 }, (_, index) => `  - path-${index}`).join("\\n")}
+dangerous_patterns: []
+secret_patterns: []
+`;
+  assert.throws(() => parsePolicyText(oversizedPaths), /at most 500 strings/);
 });
 
 test("init refuses to overwrite a policy symlink", async () => {
