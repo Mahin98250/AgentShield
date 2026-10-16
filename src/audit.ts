@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { lstat, mkdir, open as openFile } from "node:fs/promises";
+import { lstat, mkdir, open as openFile, unlink } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -37,16 +37,15 @@ interface AuditLock {
 
 async function acquireAuditLock(auditPath: string): Promise<AuditLock> {
   const lockPath = `${auditPath}.lock`;
+  let handle: FileHandle | undefined;
   for (let attempt = 0; attempt < 100; attempt++) {
     try {
-      const handle = await openFile(
+      handle = await openFile(
         lockPath,
         constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | NOFOLLOW_FLAG,
         0o600
       );
-      const info = await handle.stat();
-      await handle.writeFile(`${process.pid}\\n`, "utf8");
-      return { path: lockPath, handle, dev: info.dev, ino: info.ino };
+      break;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
       if (attempt === 99) {
@@ -55,14 +54,26 @@ async function acquireAuditLock(auditPath: string): Promise<AuditLock> {
       await delay(10);
     }
   }
-  throw new Error("Unable to acquire audit lock.");
+  if (!handle) throw new Error("Unable to acquire audit lock.");
+
+  const info = await handle.stat();
+  try {
+    await handle.writeFile(`${process.pid}\\n`, "utf8");
+    return { path: lockPath, handle, dev: info.dev, ino: info.ino };
+  } catch (error) {
+    await handle.close().catch(() => undefined);
+    try {
+      const pathInfo = await lstat(lockPath);
+      if (!pathInfo.isSymbolicLink() && pathInfo.dev === info.dev && pathInfo.ino === info.ino) await unlink(lockPath);
+    } catch { /* preserve the original lock-write failure */ }
+    throw error;
+  }
 }
 
 async function releaseAuditLock(lock: AuditLock): Promise<void> {
   try {
     const pathInfo = await lstat(lock.path);
     if (!pathInfo.isSymbolicLink() && pathInfo.isFile() && pathInfo.dev === lock.dev && pathInfo.ino === lock.ino) {
-      const { unlink } = await import("node:fs/promises");
       await unlink(lock.path);
     }
   } finally {
