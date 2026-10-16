@@ -130,10 +130,15 @@ test("audit log re-redacts summaries and can be read back", async () => {
   const dir = await mkdtemp(join(tmpdir(), "agentshield-test-"));
   const path = join(dir, "audit.jsonl");
   try {
-    await writeAudit({ decision: "approve", reason: "review", commandSummary: "tool --api-key=supersecret", timestamp: new Date(0).toISOString() }, path);
+    await writeAudit({ decision: "approve", reason: "review https://user:reason-url-secret@example.invalid Authorization: Basic reason-auth-secret", commandSummary: "tool --api-key=supersecret", timestamp: new Date(0).toISOString() }, path);
     const raw = await readFile(path, "utf8");
     assert.equal(raw.includes("supersecret"), false);
-    assert.equal((await readAudit(path))[0]?.decision, "approve");
+    assert.equal(raw.includes("reason-url-secret"), false);
+    assert.equal(raw.includes("reason-auth-secret"), false);
+    const events = await readAudit(path);
+    assert.equal(events[0]?.decision, "approve");
+    assert.equal(events[0]?.reason.includes("reason-url-secret"), false);
+    assert.equal(events[0]?.reason.includes("reason-auth-secret"), false);
     const link = join(dir, "audit-link.jsonl");
     await symlink(path, link);
     await assert.rejects(writeAudit({ decision: "allow", reason: "test", commandSummary: "pwd", timestamp: new Date().toISOString() }, link), /symlink/);
