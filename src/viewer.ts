@@ -5,7 +5,7 @@ const escapeHtml = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, c
 
 export function isTrustedViewerRequest(hostHeader: string | undefined, origin: string | undefined, fetchSite: string | undefined): boolean {
   if (!hostHeader) return false;
-  const hostMatch = /^(localhost|127\\.0\\.0\\.1)(?::(\\d{1,5}))?$/i.exec(hostHeader);
+  const hostMatch = /^(localhost|127\.0\.0\.1)(?::(\d{1,5}))?$/i.exec(hostHeader);
   if (!hostMatch || (hostMatch[2] !== undefined && Number(hostMatch[2]) > 65535)) return false;
   if (fetchSite === "cross-site") return false;
   if (origin !== undefined) {
