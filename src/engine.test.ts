@@ -95,6 +95,10 @@ test("audit log re-redacts summaries and can be read back", async () => {
     await writeAudit({ decision: "approve", reason: "review", commandSummary: "tool --api-key=supersecret", timestamp: new Date(0).toISOString() }, path);
     const raw = await readFile(path, "utf8");
     assert.equal(raw.includes("supersecret"), false);
-    assert.equal((await readAudit(path))[0]?.decision, "approve");\n    const link = join(dir, "audit-link.jsonl");\n    await symlink(path, link);\n    await assert.rejects(writeAudit({ decision: "allow", reason: "test", commandSummary: "pwd", timestamp: new Date().toISOString() }, link), /symlink/);\n    await assert.rejects(readAudit(link), /symlink/);
+    assert.equal((await readAudit(path))[0]?.decision, "approve");
+    const link = join(dir, "audit-link.jsonl");
+    await symlink(path, link);
+    await assert.rejects(writeAudit({ decision: "allow", reason: "test", commandSummary: "pwd", timestamp: new Date().toISOString() }, link), /symlink/);
+    await assert.rejects(readAudit(link), /symlink/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
