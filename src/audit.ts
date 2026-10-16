@@ -11,6 +11,13 @@ function unsafeAuditPath(): Error {
   return new Error("Audit log must be a regular file, not a symlink or special file.");
 }
 
+async function rejectUnsafeParentDirectory(fullPath: string): Promise<void> {
+  const parentInfo = await lstat(dirname(fullPath));
+  if (parentInfo.isSymbolicLink() || !parentInfo.isDirectory()) {
+    throw new Error("Audit directory must be a real directory, not a symlink or special file.");
+  }
+}
+
 async function rejectUnsafeExistingPath(fullPath: string): Promise<void> {
   try {
     const existing = await lstat(fullPath);
@@ -39,6 +46,7 @@ async function verifyOpenedAuditFile(fullPath: string, handle: FileHandle): Prom
 export async function writeAudit(evaluation: Evaluation, path = ".agentshield/audit.jsonl"): Promise<void> {
   const fullPath = resolve(path);
   await mkdir(dirname(fullPath), { recursive: true, mode: 0o700 });
+  await rejectUnsafeParentDirectory(fullPath);
   await rejectUnsafeExistingPath(fullPath);
 
   // Audit records intentionally omit command text, dynamic reasons, and rule IDs.
@@ -82,6 +90,7 @@ export async function readAudit(path = ".agentshield/audit.jsonl", limit = 50): 
   const fullPath = resolve(path);
   let handle: FileHandle;
   try {
+    await rejectUnsafeParentDirectory(fullPath);
     await rejectUnsafeExistingPath(fullPath);
     handle = await openFile(fullPath, constants.O_RDONLY | NOFOLLOW_FLAG);
   } catch (error) {
