@@ -33,7 +33,7 @@ AgentShield checks commands and protected-file operations against explicit rules
 
 Requires Node.js 20+ and npm.
 
-    npm install
+    npm ci
     npm run check
     node dist/cli.js init
     node dist/cli.js check --command "npm test"
