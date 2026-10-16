@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile, mkdtemp, rm, symlink } from "node:fs/promises";
+import { readFile, writeFile, mkdtemp, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -159,4 +159,25 @@ test("audit log re-redacts summaries and can be read back", async () => {
     await assert.rejects(writeAudit({ decision: "allow", reason: "test", commandSummary: "pwd", timestamp: new Date().toISOString() }, link), /symlink/);
     await assert.rejects(readAudit(link), /symlink/);
   } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test("audit log refuses writes that would exceed its projected size limit", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "agentshield-audit-limit-"));
+  const path = join(dir, "audit.jsonl");
+  const maxBytes = 10 * 1024 * 1024;
+  try {
+    await writeFile(path, "x".repeat(maxBytes - 1), { encoding: "utf8", mode: 0o600 });
+    await assert.rejects(
+      writeAudit({
+        decision: "allow",
+        reason: "safe",
+        commandSummary: "pwd",
+        timestamp: new Date().toISOString()
+      }, path),
+      /would exceed the 10 MiB safety limit/
+    );
+    assert.equal((await readFile(path)).byteLength, maxBytes - 1);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
