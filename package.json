@@ -3,16 +3,46 @@
   "version": "0.1.0",
   "description": "Local-first policy guard for AI coding agents",
   "type": "module",
-  "bin": { "agentshield": "./dist/cli.js" },
-  "files": ["dist", "rules", "README.md", "LICENSE", "SECURITY.md"],
+  "bin": {
+    "agentshield": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.test.js",
+    "!dist/**/*.test.d.ts",
+    "!dist/**/*.test.js.map",
+    "rules",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "npm run build && node --test",
     "check": "npm test"
   },
-  "engines": { "node": ">=20" },
-  "keywords": ["security", "ai-agents", "coding-agents", "cli", "policy-engine"],
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "security",
+    "ai-agents",
+    "coding-agents",
+    "cli",
+    "policy-engine"
+  ],
   "license": "MIT",
   "dependencies": {},
-  "devDependencies": { "@types/node": "^22.15.0", "typescript": "^5.8.3" }
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "^5.8.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Mahin98250/AgentShield.git"
+  },
+  "homepage": "https://github.com/Mahin98250/AgentShield#readme",
+  "bugs": {
+    "url": "https://github.com/Mahin98250/AgentShield/issues"
+  }
 }

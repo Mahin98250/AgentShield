@@ -1,6 +1,6 @@
 import type { Evaluation, Policy, PatternRule } from "./types.js";
 
-const SECRET_ASSIGNMENT = /((?:api[_-]?key|access[_-]?token|secret|password)\s*[=:]\s*)[^\s"'\x60]+/gi;
+const SECRET_ASSIGNMENT = /((?:api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|token|secret|password|passwd)\s*(?:[=:]\s*|\s+))[^\s"'\x60]+/gi;
 const BEARER = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi;
 const PEM = /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g;
 const MAX_COMMAND_LENGTH = 8_000;
@@ -61,11 +61,20 @@ export function evaluate(command: string, policy: Policy, now = new Date()): Eva
     return { ...base, decision: "error", reason: "A non-empty command string is required." };
   }
   if (command.length > MAX_COMMAND_LENGTH) return { ...base, decision: "approve", reason: "Command exceeds the inspection limit; manual review required.", ruleId: "command-too-long" };
+  // Explicit block rules take precedence over ambiguity escalation.
+  for (const rule of policy.dangerous_patterns) {
+    if (rule.action === "block" && matchesRule(rule, command)) {
+      return { ...base, decision: "block", reason: rule.reason, ruleId: rule.id };
+    }
+  }
+  // Shell syntax is not fully parsed; escalation is safer than guessing how it executes.
   if (/(?:\x60|\$\(|\$\{|(?:^|[;&|])\s*(?:sh|bash|zsh|fish)\s+-c\b)/i.test(command)) {
     return { ...base, decision: "approve", reason: "Shell substitution or nested shell syntax needs manual review.", ruleId: "ambiguous-shell" };
   }
   for (const rule of policy.dangerous_patterns) {
-    if (matchesRule(rule, command)) return { ...base, decision: rule.action, reason: rule.reason, ruleId: rule.id };
+    if (rule.action !== "block" && matchesRule(rule, command)) {
+      return { ...base, decision: rule.action, reason: rule.reason, ruleId: rule.id };
+    }
   }
   for (const rule of policy.secret_patterns) {
     if (matchesRule(rule, command)) return { ...base, decision: rule.action, reason: rule.reason, ruleId: rule.id };
