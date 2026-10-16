@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile, writeFile, mkdtemp, rm, symlink } from "node:fs/promises";
+import { mkdir, readFile, writeFile, mkdtemp, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { DEFAULT_POLICY, parsePolicyText } from "./policy.js";
 import { evaluate, evaluateFilePath, protectedPathMatch, redact } from "./engine.js";
@@ -216,4 +217,42 @@ test("custom policy reasons are sanitized before command and hook responses", ()
   });
   assert.equal(JSON.stringify(hookResponse).includes("hook-boundary-secret"), false);
   assert.match(hookResponse?.hookSpecificOutput.permissionDecisionReason ?? "", /REDACTED/);
+});
+
+test("policy validation rejects common catastrophic regex shapes", () => {
+  const policyWithPattern = (pattern: string) => `version: 1
+defaults:
+  unknown_command: approve
+  require_approval: []
+protected_paths: []
+dangerous_patterns:
+  - id: unsafe-pattern
+    pattern: ${JSON.stringify(pattern)}
+    reason: Unsafe test rule
+    action: block
+secret_patterns: []
+`;
+  for (const pattern of ["(a+)+$", "(a|aa)+$", "^(a)\\\\1$"]) {
+    assert.throws(() => parsePolicyText(policyWithPattern(pattern)), /backreferences|nested repetition|repeats an alternation/);
+  }
+  assert.equal(parsePolicyText(policyWithPattern("deploy\\\\s+staging")).dangerous_patterns.length, 1);
+});
+
+test("init refuses to overwrite a policy symlink", async () => {
+  if (process.platform === "win32") return;
+  const dir = await mkdtemp(join(tmpdir(), "agentshield-init-symlink-"));
+  try {
+    const policyDir = join(dir, ".agentshield");
+    await mkdir(policyDir);
+    const victim = join(dir, "important.txt");
+    const policy = join(policyDir, "policy.yml");
+    await writeFile(victim, "do not overwrite");
+    await symlink(victim, policy);
+    const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
+    const result = spawnSync(process.execPath, [cli, "init", "--force"], { cwd: dir, encoding: "utf8" });
+    assert.notEqual(result.status, 0);
+    assert.equal(await readFile(victim, "utf8"), "do not overwrite");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
