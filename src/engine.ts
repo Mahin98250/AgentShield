@@ -1,6 +1,6 @@
 import type { Evaluation, Policy, PatternRule } from "./types.js";
 
-const SECRET_ASSIGNMENT = /((?:api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|token|secret|password|passwd)\s*(?:[=:]\s*|\s+))[^\s"'\x60]+/gi;
+const SECRET_ASSIGNMENT = /((?:api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|token|secret|password|passwd|authorization)\s*(?:[=:]\s*|\s+))(?:"[^"]*"|'[^']*'|[^\s"';&|<>]+)/gi;
 const BEARER = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi;
 const PEM = /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g;
 const MAX_COMMAND_LENGTH = 8_000;
@@ -9,7 +9,8 @@ export function redact(text: string): string {
   return text.replace(PEM, "[REDACTED_PRIVATE_KEY]")
     .replace(BEARER, "Bearer [REDACTED]")
     .replace(SECRET_ASSIGNMENT, "$1[REDACTED]")
-    .replace(/(gh[pousr]_[A-Za-z0-9_]{12,}|sk-[A-Za-z0-9_-]{12,})/g, "[REDACTED_TOKEN]")
+    .replace(/(gh[pousr]_[A-Za-z0-9_]{12,}|sk-[A-Za-z0-9_-]{12,}|AKIA[0-9A-Z]{16})/g, "[REDACTED_TOKEN]")
+    .replace(/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g, "[REDACTED_JWT]")
     .slice(0, 240);
 }
 function matchesRule(rule: PatternRule, command: string): boolean {
@@ -67,9 +68,9 @@ export function evaluate(command: string, policy: Policy, now = new Date()): Eva
       return { ...base, decision: "block", reason: rule.reason, ruleId: rule.id };
     }
   }
-  // Shell syntax is not fully parsed; escalation is safer than guessing how it executes.
-  if (/(?:\x60|\$\(|\$\{|(?:^|[;&|])\s*(?:sh|bash|zsh|fish)\s+-c\b)/i.test(command)) {
-    return { ...base, decision: "approve", reason: "Shell substitution or nested shell syntax needs manual review.", ruleId: "ambiguous-shell" };
+  // The engine does not parse shell grammar. Compound operators and substitutions therefore require review.
+  if (/(?:\x60|\$\(|\$\{|(?:^|[;&|])\s*(?:sh|bash|zsh|fish)\s+-c\b|&&|\|\||[;|<>])/i.test(command)) {
+    return { ...base, decision: "approve", reason: "Compound shell syntax, redirection, or substitution needs manual review.", ruleId: "ambiguous-shell" };
   }
   for (const rule of policy.dangerous_patterns) {
     if (rule.action !== "block" && matchesRule(rule, command)) {
