@@ -89,6 +89,15 @@ test("Claude hook fails closed for malformed JSON and missing shell fields", () 
   });
   assert.equal(missing.status, 0);
   assert.match(missing.stdout, /"permissionDecision":"deny"/);
+  for (const input of [{}, { tool_name: "Bash" }, { tool_name: 42, tool_input: {} }]) {
+    const malformedEnvelope = spawnSync(process.execPath, [cli.pathname, "claude-hook"], {
+      input: JSON.stringify(input),
+      encoding: "utf8"
+    });
+    assert.equal(malformedEnvelope.status, 0);
+    assert.match(malformedEnvelope.stdout, /"permissionDecision":"deny"/);
+  }
+  assert.equal(evaluateClaudeInput({}, DEFAULT_POLICY)?.decision, "error");
 });
 test("loads bundled YAML and validates policy schema", async () => {
   const text = await readFile(new URL("../rules/default.yml", import.meta.url), "utf8");
