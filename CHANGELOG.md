@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Harden audit writes with cooperating-process locking, projected size checks, and symlink/special-file checks.
+- Minimize audit records and sanitize custom policy reasons at engine and hook output boundaries.
+- Reject common high-risk regex shapes, bound policy lists, and fail closed on malformed Claude Code hook envelopes.
+- Protect policy initialization from symlink targets and harden the local viewer against cross-origin requests.
+- Extend CI to Node.js 24, enable stricter TypeScript checks, and add weekly Dependabot updates.
+- Add security operations guidance for hook validation, incident response, and audit-lock recovery.
+
 - Add a branded local activity dashboard with decision counts.
 - Check protected file reads and protect AgentShield/Claude Code settings from hook-mediated edits.
 - Expand destructive command matching and fail-closed Claude Code hook configuration.

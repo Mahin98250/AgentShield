@@ -23,17 +23,17 @@ AgentShield checks commands and protected-file operations against explicit rules
 ## Included in this first milestone
 
 - TypeScript CLI with a YAML policy format and strict validation.
-- Conservative command rules: destructive patterns block; unfamiliar commands ask for approval.
+- Conservative command rules: known destructive patterns block; compound shell operators, redirection, substitutions, and unfamiliar commands ask for approval.
 - Claude Code PreToolUse adapter for Bash, PowerShell, Write, Edit, and Read.
 - Protected-path checks for secret files, policy files, and Claude Code settings covered by the hook.
-- Local JSONL activity log, basic secret redaction, and a loopback-only read-only viewer.
+- Local JSONL decision log with bounded reads, minimal recorded data, and a loopback-only read-only viewer.
 - Regression tests, security notes, and GitHub Actions CI.
 
 ## Requirements and quick start
 
 Requires Node.js 20+ and npm.
 
-    npm install
+    npm ci
     npm run check
     node dist/cli.js init
     node dist/cli.js check --command "npm test"
@@ -51,7 +51,7 @@ Build AgentShield, then choose a configuration example. Use examples/claude-sett
 - A block decision returns deny and stops the tool call.
 - A command needing review returns ask, which brings back the normal confirmation prompt.
 - For an ordinary command, AgentShield stays quiet; Claude Code's usual permission checks still apply.
-- The hook checks Bash/PowerShell commands and Read/Write/Edit paths. Configured protected files, AgentShield policy files, and Claude Code settings are blocked.
+- The hook checks Bash/PowerShell commands and Read/Write/Edit paths. Configured protected files, AgentShield policy files, and Claude Code settings are blocked. The sample uses `onFailure: "block"`; Claude Code requires v2.1.295 or newer for that setting. On older versions, hook timeout/failure behavior may be fail-open, so upgrade before relying on it as a blocking guard.
 - onFailure: block tells Claude Code to stop the action if the hook fails or times out.
 
 See the [Claude Code hooks documentation](https://code.claude.com/docs/en/hooks) for current settings. Claude Code is a product of Anthropic; AgentShield is independent and is not affiliated with Anthropic.
@@ -60,7 +60,7 @@ See the [Claude Code hooks documentation](https://code.claude.com/docs/en/hooks)
 
 See rules/default.yml for the starter policy. The active policy file defaults to .agentshield/policy.yml and uses version, defaults, protected_paths, dangerous_patterns, and secret_patterns. Each rule needs a unique ID, a JavaScript regular expression, a human-readable reason, and an action of block or approve. Unknown commands require approval by default.
 
-The policy parser intentionally supports a conservative YAML subset and rejects unsupported or malformed input rather than silently guessing. Patterns are evaluated case-insensitively against command text. Review regex rules carefully: they are not a shell parser.
+The policy parser intentionally supports a conservative YAML subset and rejects unsupported or malformed input rather than silently guessing. It rejects several common catastrophic-backtracking regex shapes (including nested repetition, repeated alternations, and backreferences), but this is a heuristic—not a proof of bounded execution time. Patterns are evaluated case-insensitively against command text. Review regex rules carefully: they are not a shell parser, and only use policy files you trust.
 
 ## Commands
 
@@ -77,13 +77,13 @@ AgentShield is a local CLI, not a hosted web app or browser extension. Its activ
 
 ## Privacy and limits
 
-The CLI makes no network requests and collects no analytics. Audit events contain a short redacted command summary, decision, reason, timestamp, and optional rule ID; raw command output is not captured. Redaction is best-effort and cannot guarantee all credentials are removed. The viewer is read-only, loopback-bound, escapes log text, and disables script execution with a Content Security Policy.
+The CLI makes no network requests and collects no analytics. Audit events deliberately record only the decision, a normalized timestamp, and fixed generic text; raw commands, dynamic policy reasons, and rule IDs are omitted to reduce accidental disclosure. Redaction elsewhere is best-effort only: it cannot guarantee detection of every unusual, encoded, multiline, or embedded credential. Do not put secrets in command arguments or policy messages, and do not treat sanitized summaries as a secrecy boundary. Audit logs are limited to 10 MiB, and a write is rejected when the projected size would exceed that limit. Cooperating AgentShield writers serialize appends with a lock file; if a process crashes, a stale `.lock` file can remain, and it should only be removed after confirming no AgentShield writer is active. Audit reads and writes validate regular-file targets, use no-follow open flags where supported, and compare the opened handle with the path entry to reduce symlink/replacement races; these checks still depend on platform and filesystem semantics and are not an OS-level isolation boundary. Archive the file before continuing if the limit is reached. The viewer checks loopback Host and same-origin request metadata, is read-only and loopback-bound, escapes log text, and disables script execution with a Content Security Policy.
 
 AgentShield does not provide sandboxing, network controls, OS-level filesystem authorization, full shell parsing, process-tree mediation, or protection from someone intentionally bypassing the hook. Protected-file checks apply only to supported tools/events the hook receives. Do not use this as the only protection for production credentials or untrusted code.
 
 ## Development and security
 
-Run npm run check for the build and automated tests. See docs/USAGE.md for a short walkthrough, docs/THREAT_MODEL.md for the initial threat model, CONTRIBUTING.md for the contributor workflow, CHANGELOG.md for release notes, and SECURITY.md for vulnerability reporting. This is an engineering baseline, not a formal security audit or certification.
+Run npm run check for the build and automated tests; CI checks Node.js 20, 22, and 24 and runs npm pack --dry-run to inspect the package contents. See docs/USAGE.md for a short walkthrough, docs/THREAT_MODEL.md for the threat model, docs/SECURITY_OPERATIONS.md for hook validation and audit-lock recovery, CONTRIBUTING.md for the contributor workflow, CHANGELOG.md for release notes, and SECURITY.md for vulnerability reporting. This is an engineering baseline, not a formal security audit or certification. Releases remain gated on an independent security review, with shell parsing and command-classification bypasses explicitly in scope; see [the security operations release gate](docs/SECURITY_OPERATIONS.md#mandatory-independent-security-review-gate).
 
 ## Roadmap
 

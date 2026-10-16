@@ -1,5 +1,5 @@
 import type { Evaluation, Policy } from "./types.js";
-import { evaluate, evaluateFilePath } from "./engine.js";
+import { evaluate, evaluateFilePath, redact } from "./engine.js";
 
 export interface ClaudeHookInput {
   tool_name?: unknown;
@@ -15,7 +15,14 @@ export interface ClaudeHookResponse {
 
 /** Null means AgentShield has no objection; Claude Code's normal permission flow still applies. */
 export function evaluateClaudeInput(input: ClaudeHookInput, policy: Policy): Evaluation | null {
-  if (typeof input.tool_name !== "string" || !input.tool_input || typeof input.tool_input !== "object") return null;
+  if (typeof input.tool_name !== "string" || !input.tool_input || typeof input.tool_input !== "object" || Array.isArray(input.tool_input)) {
+    return {
+      decision: "error",
+      reason: "Claude Code hook input is missing a valid tool name or tool input object.",
+      commandSummary: "[invalid Claude hook input]",
+      timestamp: new Date().toISOString()
+    };
+  }
   const toolInput = input.tool_input as Record<string, unknown>;
   if (input.tool_name === "Bash" || input.tool_name === "PowerShell") {
     if (typeof toolInput.command !== "string") return { decision: "error", reason: "Shell tool input has no command string.", commandSummary: "[invalid shell input]", timestamp: new Date().toISOString() };
@@ -36,7 +43,7 @@ export function formatClaudeResponse(evaluation: Evaluation): ClaudeHookResponse
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
       permissionDecision: evaluation.decision === "approve" ? "ask" : "deny",
-      permissionDecisionReason: evaluation.reason.slice(0, 500)
+      permissionDecisionReason: redact(evaluation.reason).slice(0, 500)
     }
   };
 }
