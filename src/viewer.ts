@@ -3,8 +3,34 @@ import { readAudit } from "./audit.js";
 
 const escapeHtml = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 
+export function isTrustedViewerRequest(hostHeader: string | undefined, origin: string | undefined, fetchSite: string | undefined): boolean {
+  if (!hostHeader) return false;
+  const hostMatch = /^(localhost|127\\.0\\.0\\.1)(?::(\\d{1,5}))?$/i.exec(hostHeader);
+  if (!hostMatch || (hostMatch[2] !== undefined && Number(hostMatch[2]) > 65535)) return false;
+  if (fetchSite === "cross-site") return false;
+  if (origin !== undefined) {
+    try {
+      const parsed = new URL(origin);
+      if (parsed.protocol !== "http:" || parsed.host.toLowerCase() !== hostHeader.toLowerCase()) return false;
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
 export async function startViewer(port = 4173): Promise<void> {
   const server = createServer(async (req, res) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+    res.setHeader("Cache-Control", "no-store");
+    if (!isTrustedViewerRequest(req.headers.host, req.headers.origin, req.headers["sec-fetch-site"])) {
+      res.writeHead(403, { "content-type": "text/plain; charset=utf-8" });
+      res.end("Forbidden");
+      return;
+    }
     if (req.url !== "/" && req.url !== "/api/events") {
       res.writeHead(404, { "content-type": "text/plain; charset=utf-8" }); res.end("Not found"); return;
     }
