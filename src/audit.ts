@@ -15,13 +15,22 @@ export async function writeAudit(evaluation: Evaluation, path = ".agentshield/au
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
+  // Audit records intentionally omit command text, dynamic reasons, and rule IDs.
+  // Sanitization cannot reliably discover arbitrary secrets in arbitrary text.
+  const decision = ["allow", "approve", "block", "error"].includes(evaluation.decision)
+    ? evaluation.decision
+    : "error";
+  const parsedTimestamp = Date.parse(evaluation.timestamp);
   const event: AuditEvent = {
-    ...evaluation,
-    commandSummary: redact(evaluation.commandSummary),
-    reason: redact(evaluation.reason).slice(0, 500),
-    event: "decision"
+    event: "decision",
+    decision,
+    timestamp: Number.isFinite(parsedTimestamp) ? new Date(parsedTimestamp).toISOString() : new Date().toISOString(),
+    commandSummary: "[omitted for privacy]",
+    reason: "Policy decision recorded; sensitive details omitted."
   };
-  await appendFile(fullPath, JSON.stringify(event) + "\n", { encoding: "utf8", mode: 0o600, flag: "a" });
+  const line = JSON.stringify(event) + "\n";
+  if (Buffer.byteLength(line, "utf8") > MAX_AUDIT_BYTES) throw new Error("Audit event exceeds the safety limit.");
+  await appendFile(fullPath, line, { encoding: "utf8", mode: 0o600, flag: "a" });
   try { await chmod(fullPath, 0o600); } catch { /* platform may not support POSIX permissions */ }
 }
 
@@ -44,10 +53,9 @@ export async function readAudit(path = ".agentshield/audit.jsonl", limit = 50): 
         return [{
           event: "decision",
           decision: v.decision,
-          timestamp: v.timestamp.slice(0, 64),
-          reason: redact(v.reason).slice(0, 500),
-          commandSummary: redact(v.commandSummary),
-          ...(typeof v.ruleId === "string" ? { ruleId: v.ruleId.slice(0, 64) } : {})
+          timestamp: Number.isFinite(Date.parse(v.timestamp)) ? new Date(Date.parse(v.timestamp)).toISOString() : new Date(0).toISOString(),
+          reason: "Policy decision recorded; sensitive details omitted.",
+          commandSummary: "[omitted for privacy]"
         } as AuditEvent];
       } catch { return []; }
     });
