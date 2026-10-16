@@ -1,5 +1,5 @@
 import type { Evaluation, Policy } from "./types.js";
-import { evaluate, evaluateFilePath } from "./engine.js";
+import { evaluate, evaluateFilePath, redact } from "./engine.js";
 
 export interface ClaudeHookInput {
   tool_name?: unknown;
@@ -36,7 +36,7 @@ export function formatClaudeResponse(evaluation: Evaluation): ClaudeHookResponse
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
       permissionDecision: evaluation.decision === "approve" ? "ask" : "deny",
-      permissionDecisionReason: evaluation.reason.slice(0, 500)
+      permissionDecisionReason: redact(evaluation.reason).slice(0, 500)
     }
   };
 }
