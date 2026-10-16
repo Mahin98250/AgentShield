@@ -118,7 +118,7 @@ export async function writeAudit(evaluation: Evaluation, path = ".agentshield/au
       commandSummary: "[omitted for privacy]",
       reason: "Policy decision recorded; sensitive details omitted."
     };
-    const line = JSON.stringify(event) + "\\n";
+    const line = JSON.stringify(event) + "\n";
     const lineBytes = Buffer.byteLength(line, "utf8");
     if (lineBytes > MAX_AUDIT_BYTES) throw new Error("Audit event exceeds the safety limit.");
 
