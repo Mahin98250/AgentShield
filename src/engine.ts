@@ -88,7 +88,7 @@ export function evaluate(command: unknown, policy: Policy, now = new Date()): Ev
     }
   }
   // The engine does not parse shell grammar. Compound operators and substitutions therefore require review.
-  if (/(?:\x60|\$\(|\$\{|(?:^|[;&|])\s*(?:sh|bash|zsh|fish)\s+-c\b|&&|\|\||[;|<>])/i.test(command)) {
+  if (/(?:\x60|\$\(|\$\{|(?:^|[;&|])\s*(?:sh|bash|zsh|fish)\s+-c\b|&&|\|\||[;&|<>\r\n])/i.test(command)) {
     return { ...base, decision: "approve", reason: "Compound shell syntax, redirection, or substitution needs manual review.", ruleId: "ambiguous-shell" };
   }
   for (const rule of policy.dangerous_patterns) {
