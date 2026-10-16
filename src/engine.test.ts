@@ -232,10 +232,10 @@ dangerous_patterns:
     action: block
 secret_patterns: []
 `;
-  for (const pattern of ["(a+)+$", "(a|aa)+$", "^(a)\\\\1$"]) {
+  for (const pattern of ["(a+)+$", "(a|aa)+$", "^(a)\\1$"]) {
     assert.throws(() => parsePolicyText(policyWithPattern(pattern)), /backreferences|nested repetition|repeats an alternation/);
   }
-  assert.equal(parsePolicyText(policyWithPattern("deploy\\\\s+staging")).dangerous_patterns.length, 1);
+  assert.equal(parsePolicyText(policyWithPattern("deploy\\s+staging")).dangerous_patterns.length, 1);
 });
 
 test("init refuses to overwrite a policy symlink", async () => {
