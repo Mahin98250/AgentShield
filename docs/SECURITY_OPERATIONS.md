@@ -41,6 +41,22 @@ Do not delete a lock merely because it is old. PID reuse and platform difference
 4. Add a regression test and update the threat model before re-enabling the integration.
 5. Report exploitable details privately using the guidance in [SECURITY.md](../SECURITY.md), not in a public issue.
 
+## Mandatory independent security review gate
+
+Do not mark a release candidate ready or publish a release until an independent reviewer who did not author the changes has reviewed the security-sensitive implementation and recorded findings. A green CI run is necessary but not sufficient.
+
+The review must explicitly cover:
+
+- [ ] Shell parsing and command classification: POSIX shell, Bash, PowerShell, quoting/escaping, nested shells, command substitutions, newlines, control operators, redirections, here-documents, environment assignments, and platform-specific syntax.
+- [ ] Whether the current heuristic can incorrectly allow an unsafe command; provide minimized counterexamples and regression tests.
+- [ ] Regex denial-of-service risks in user-controlled policy files, including adversarial inputs and worst-case execution behavior.
+- [ ] Protected-path matching, path normalization, symlink/hard-link and filesystem race assumptions on supported operating systems.
+- [ ] Claude Code hook failure, timeout, malformed-input and version-compatibility behavior.
+- [ ] Audit locking, crash recovery, log privacy and error paths.
+- [ ] Explicit written recommendation: approve, approve with tracked limitations, or block release.
+
+If the reviewer determines that reliable shell classification cannot be achieved with the current heuristic, keep the release blocked until AgentShield uses a reviewed shell parser or a stricter fail-closed design, with platform-specific tests. Do not describe heuristic matching as complete shell parsing.
+
 ## Release checklist
 
 - [ ] `npm ci` and `npm run check` pass on supported Node.js versions.
@@ -48,4 +64,4 @@ Do not delete a lock merely because it is old. PID reuse and platform difference
 - [ ] Hook configuration is validated against the currently installed Claude Code version.
 - [ ] Tests cover allow, ask, deny, malformed input, policy parse failure, and audit write failure.
 - [ ] README, changelog, usage guide, and threat model describe the same behavior.
-- [ ] No claim implies full secret detection, complete shell parsing, sandboxing, or formal security certification.
+- [ ] Independent security review is complete and its written disposition is recorded; shell parsing is explicitly in scope.\n- [ ] No unresolved release-blocking security findings remain.\n- [ ] No claim implies full secret detection, complete shell parsing, sandboxing, or formal security certification.
