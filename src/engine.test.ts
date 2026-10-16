@@ -181,3 +181,39 @@ test("audit log refuses writes that would exceed its projected size limit", asyn
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("custom policy reasons are sanitized before command and hook responses", () => {
+  const dangerousResult = evaluate("deploy staging", {
+    ...DEFAULT_POLICY,
+    dangerous_patterns: [{
+      id: "custom-approval",
+      pattern: "deploy",
+      reason: "Manual review. Authorization: Basic custom-policy-secret",
+      action: "approve"
+    }],
+    secret_patterns: []
+  });
+  assert.equal(dangerousResult.decision, "approve");
+  assert.equal(dangerousResult.reason.includes("custom-policy-secret"), false);
+  assert.match(dangerousResult.reason, /REDACTED/);
+
+  const secretResult = evaluate("run task", {
+    ...DEFAULT_POLICY,
+    dangerous_patterns: [],
+    secret_patterns: [{
+      id: "custom-secret",
+      pattern: "task",
+      reason: "Policy note password=secret-policy-value",
+      action: "approve"
+    }]
+  });
+  assert.equal(secretResult.reason.includes("secret-policy-value"), false);
+  assert.match(secretResult.reason, /REDACTED/);
+
+  const hookResponse = formatClaudeResponse({
+    ...dangerousResult,
+    reason: "Authorization: Basic hook-boundary-secret"
+  });
+  assert.equal(JSON.stringify(hookResponse).includes("hook-boundary-secret"), false);
+  assert.match(hookResponse?.hookSpecificOutput.permissionDecisionReason ?? "", /REDACTED/);
+});
