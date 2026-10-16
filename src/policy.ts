@@ -118,8 +118,8 @@ function parseYamlSubset(text: string): Record<string, unknown> {
 }
 
 function validateStringList(value: unknown, where: string): string[] {
-  if (!Array.isArray(value) || !value.every(item => typeof item === "string" && item.length <= 500)) {
-    throw new Error(`${where} must be a list of strings (each at most 500 characters)`);
+  if (!Array.isArray(value) || value.length > 500 || !value.every(item => typeof item === "string" && item.length <= 500)) {
+    throw new Error(`${where} must be a list of at most 500 strings (each at most 500 characters)`);
   }
   return value as string[];
 }
