@@ -97,3 +97,13 @@ Run npm run check for the build and automated tests; CI checks Node.js 20, 22, a
 - [ ] Optional local Ollama explanations (advisory only)
 
 MIT License. See LICENSE.
+
+---
+
+## Project links
+
+- **GitHub profile:** https://github.com/Mahin98250
+- **Portfolio repository:** https://github.com/Mahin98250/Porfolio
+- **More projects:** https://github.com/Mahin98250?tab=repositories
+
+> Live demo links will be added only after the deployment URL is verified.
